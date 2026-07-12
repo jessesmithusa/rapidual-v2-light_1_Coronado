@@ -1,0 +1,33 @@
+{
+  "name": "rapidual",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Rapidual — the dual-purpose last-mile platform (Rapid + Dual). Consumer app monorepo.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.19.4"
+  },
+  "scripts": {
+    "consumer": "pnpm --filter @rapidual/consumer start",
+    "consumer:ios": "pnpm --filter @rapidual/consumer ios",
+    "consumer:android": "pnpm --filter @rapidual/consumer android",
+    "consumer:web": "pnpm --filter @rapidual/consumer web",
+    "doctor": "pnpm --filter @rapidual/consumer exec expo-doctor",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "driver": "pnpm --filter @rapidual/driver start",
+    "driver:ios": "pnpm --filter @rapidual/driver ios",
+    "driver:android": "pnpm --filter @rapidual/driver android",
+    "driver:web": "pnpm --filter @rapidual/driver web",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.8"
+  }
+}

@@ -1,0 +1,36 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# expo
+.expo/
+dist/
+web-build/
+*.orig.*
+expo-env.d.ts
+
+# native
+ios/
+android/
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# env
+.env
+.env.*.local
+!.env.example
+
+# build/tooling
+.turbo/
+*.tsbuildinfo
+
+# supabase
+supabase/.branches
+supabase/.temp
+
+# os/editor
+.DS_Store
+*.log
+.vscode/

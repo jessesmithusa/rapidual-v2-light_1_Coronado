@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": { "@rapidual/shared": ["../shared/src"], "@rapidual/utils": ["../utils/src"] }
+  },
+  "include": ["src/**/*.ts"]
+}
