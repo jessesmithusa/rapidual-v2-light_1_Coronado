@@ -1,0 +1,20 @@
+# DISABLED TEMPLATE — do not copy into sites-enabled until the upstream exists.
+# Upstream: Rapidual partner/API service (reserved port 9410, not yet running).
+# JSON API only: small bounded payloads, strict methods, no buffering surprises.
+server {
+    listen 80;
+    server_name api.rapidual.gosmithnow.com;
+
+    client_max_body_size 256k;          # bounded payloads (partner API is small JSON)
+
+    location / {
+        limit_except GET POST { deny all; }
+        proxy_pass http://127.0.0.1:9410;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 15s;
+        proxy_connect_timeout 5s;
+    }
+}

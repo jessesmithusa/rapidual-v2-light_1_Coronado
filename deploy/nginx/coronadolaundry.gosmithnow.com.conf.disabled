@@ -1,0 +1,13 @@
+# DISABLED TEMPLATE — franchise frontend is deliberately deferred (no web UI yet).
+# When built, this serves a static export from /var/www/coronadolaundry.gosmithnow.com.
+server {
+    listen 80;
+    server_name coronadolaundry.gosmithnow.com;
+
+    root /var/www/coronadolaundry.gosmithnow.com/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
