@@ -2,8 +2,11 @@ import http from "node:http";
 import { validate, parseBoundedJson, type Schema } from "../../../packages/franchise-core/src/schema";
 import { inServiceArea } from "../../../packages/franchise-core/src/geo";
 import { isValidKey } from "../../../packages/franchise-core/src/idempotency";
+import { isStale } from "../../../packages/franchise-core/src/security";
 import { claimIdempotencyKey, createReservation, getReservation, healthNumbers, pool, saveIdempotentResponse, type NewReservation } from "./db";
 import { NullAdapter } from "./rapidual";
+import { authenticate } from "./auth";
+import { appendLocation, assignmentReadiness, latestLocation, listRegions } from "./ops";
 
 const PORT = Number(process.env.API_PORT ?? 9410);
 const MAX_BODY = 262_144;
@@ -25,6 +28,17 @@ const reservationSchema: Schema = {
     bag_count: { kind: "number", min: 1, max: 20, int: true },
     notes: { kind: "string", maxLen: 500 },
     payment_method: { kind: "enum", values: ["cash"] },
+  },
+};
+
+/** Operator location report: bounded coords, GPS accuracy, fresh timestamp. */
+const locationSchema: Schema = {
+  required: ["lat", "lng", "accuracy_m", "recorded_at"],
+  fields: {
+    lat: { kind: "number", min: -90, max: 90 },
+    lng: { kind: "number", min: -180, max: 180 },
+    accuracy_m: { kind: "number", min: 0, max: 10000 },
+    recorded_at: { kind: "string", maxLen: 32, pattern: /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/ },
   },
 };
 
@@ -102,6 +116,43 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     const body = { reservation: created, payment_method: "cash", handoff: "pending" };
     await saveIdempotentResponse(key, body);
     return send(res, 201, body);
+  }
+
+  if (req.method === "GET" && path === "/v1/regions") {
+    return send(res, 200, { regions: await listRegions() });
+  }
+
+  if (path === "/v1/operators/me" || path === "/v1/operators/me/location" || path === "/v1/ops/readiness") {
+    const op = await authenticate(req);
+    if (!op) return send(res, 401, { error: "unauthorized" });
+
+    if (req.method === "GET" && path === "/v1/operators/me") {
+      const { min_lat, max_lat, min_lng, max_lng, region_id, ...pub } = op;
+      return send(res, 200, { operator: pub });
+    }
+    if (req.method === "GET" && path === "/v1/operators/me/location") {
+      const loc = await latestLocation(op.id);
+      return loc ? send(res, 200, { location: loc }) : send(res, 404, { error: "no location reported yet" });
+    }
+    if (req.method === "PUT" && path === "/v1/operators/me/location") {
+      const raw = await readBody(req);
+      if (raw === null) return send(res, 413, { error: "payload too large" });
+      const parsed = parseBoundedJson(raw, MAX_BODY);
+      if (!parsed.ok) return send(res, 400, { error: "invalid JSON", details: parsed.errors });
+      const v = validate<{ lat: number; lng: number; accuracy_m: number; recorded_at: string }>(parsed.value, locationSchema);
+      if (!v.ok) return send(res, 422, { error: "validation failed", details: v.errors });
+      const { lat, lng, accuracy_m, recorded_at } = v.value;
+      if (lat < op.min_lat || lat > op.max_lat || lng < op.min_lng || lng > op.max_lng) {
+        return send(res, 422, { error: `coordinates outside region '${op.region_slug}'` });
+      }
+      if (isStale(recorded_at)) return send(res, 422, { error: "recorded_at outside accepted 10-minute window" });
+      await appendLocation(op, lat, lng, accuracy_m, recorded_at);
+      return send(res, 200, { ok: true, appended: true });
+    }
+    if (req.method === "GET" && path === "/v1/ops/readiness") {
+      return send(res, 200, await assignmentReadiness());
+    }
+    return send(res, 405, { error: "method not allowed" });
   }
 
   const m = path.match(/^\/v1\/reservations\/([0-9a-f-]{36})$/);
